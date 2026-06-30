@@ -332,10 +332,14 @@
             });
 
             document.getElementById('btn-download-file').addEventListener('click', () => {
-                const content = markdownInput.value;
+                let content = markdownInput.value;
                 const format = downloadFormatSelect.value;
                 const title = titleInput.value.trim() || 'Untitled';
                 const filename = `${title}${format}`;
+
+                if (format === '.txt') {
+                    content = formatMarkdownTables(content, true);
+                }
 
                 const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
                 const url = URL.createObjectURL(blob);
@@ -380,7 +384,7 @@
                 }
             });
 
-            function formatMarkdownTables(text) {
+            function formatMarkdownTables(text, isDiscordMode = false) {
                 const lines = text.split(/\r?\n/); 
                 let inTable = false;
                 let tableLines = [];
@@ -399,9 +403,56 @@
                     
                     if (rows.length < 2) return tLines.join('\n');
 
+                    if (isDiscordMode) {
+                        const MAX_COL_WIDTH = 60;
+                        const processedRows = [];
+                        rows.forEach((row, rowIndex) => {
+                            if (rowIndex === 1) return; 
+                            const splitCells = row.map(cell => {
+                                const manualLines = cell.split(/<br\s*\/?>/i).map(s => s.trim());
+                                const finalLines = [];
+                                manualLines.forEach(mLine => {
+                                    if (getVisLen(mLine) <= MAX_COL_WIDTH) finalLines.push(mLine);
+                                    else {
+                                        const words = mLine.split(' ');
+                                        let cur = '';
+                                        words.forEach(word => {
+                                            if (getVisLen(cur + word) > MAX_COL_WIDTH) {
+                                                if (cur) finalLines.push(cur.trim());
+                                                cur = word + ' ';
+                                            } else { cur += word + ' '; }
+                                        });
+                                        if (cur) finalLines.push(cur.trim());
+                                    }
+                                });
+                                return finalLines.length ? finalLines : [""];
+                            });
+                            processedRows.push(splitCells);
+                        });
+                        const colWidths = [];
+                        processedRows.forEach(row => {
+                            row.forEach((cellLines, i) => {
+                                cellLines.forEach(line => {
+                                    const len = getVisLen(line);
+                                    if (!colWidths[i] || len > colWidths[i]) colWidths[i] = len;
+                                });
+                            });
+                        });
+                        const separator = '+' + colWidths.map(w => '-'.repeat((w || 3) + 2)).join('+') + '+';
+                        let ascii = [separator];
+                        processedRows.forEach((row) => {
+                            const maxLines = Math.max(1, ...row.map(c => c.length));
+                            for (let l = 0; l < maxLines; l++) {
+                                const lineCells = row.map((linesArray, i) => padRight(linesArray[l] || "", colWidths[i] || 3));
+                                ascii.push('| ' + lineCells.join(' | ') + ' |');
+                            }
+                            ascii.push(separator);
+                        });
+                        return ascii.join('\n');
+                    }
+
                     const colWidths = [];
                     const MAX_PAD = 40; 
-
                     rows.forEach((row, rowIndex) => {
                         if (rowIndex === 1) return;
                         row.forEach((cell, i) => {
@@ -410,7 +461,6 @@
                             if (len > colWidths[i]) colWidths[i] = Math.min(len, MAX_PAD);
                         });
                     });
-
                     const aligned = rows.map((row, rowIndex) => {
                         if (rowIndex === 1) return '| ' + colWidths.map(w => '-'.repeat(w)).join(' | ') + ' |';
                         return '| ' + row.map((cell, i) => padRight(cell, colWidths[i])).join(' | ') + ' |';
