@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Editor & Library</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --border-color: #333;
+            --accent-color: #3585d0;
+            --text-color: #e0e0e0;
+            --sidebar-bg: #161616;
+        }
+        
+        * { box-sizing: border-box; }
+        
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .btn {
+            padding: 4px 10px;
+            font-size: 0.85rem;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            font-family: inherit;
+        }
+        .btn-primary { background-color: var(--accent-color); color: #000; font-weight: bold; }
+        .btn-secondary { background-color: transparent; border: 1px solid #444; color: #ccc; }
+        .btn-secondary:hover { background-color: #2a2a2a; border-color: #555; color: #fff; }
+        
+        .input-std {
+            background-color: #1e1e1e;
+            border: 1px solid var(--border-color);
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            outline: none;
+        }
+        
+        .btn:focus-visible, .input-std:focus-visible, .select-btn-style:focus-visible {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+        }
+
+        .select-btn-style {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ccc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 1em;
+            padding-right: 2rem;
+        }
+
+        .app-layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: margin-left 0.3s ease;
+            flex-shrink: 0;
+        }
+        .sidebar.collapsed {
+            margin-left: -250px;
+        }
+        .sidebar-content {
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+        .sidebar-header {
+            padding: 15px;
+            background-color: #1a1a1a;
+            border-bottom: 1px solid #333;
+            font-weight: bold;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            display: flex;
+            justify-content: space-between;
+            min-height: 51px;
+            align-items: center;
+        }
+        .library-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .library-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #222;
+            cursor: pointer;
+            color: #bbb;
+            font-size: 0.9rem;
+            transition: background 0.2s, color 0.2s;
+        }
+        .library-item:hover {
+            background-color: rgba(53, 133, 208, 0.1);
+            color: #fff;
+        }
+        .library-item.active {
+            background-color: var(--accent-color);
+            color: #000;
+            font-weight: bold;
+        }
+
+        .panel { flex: 1; display: flex; flex-direction: column; }
+        .editor-panel { border-right: 1px solid var(--border-color); }
+        .preview-panel { background-color: var(--panel-bg); overflow-y: auto; }
+        
+        .header-bar {
+            background-color: #252526;
+            padding: 10px 15px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 51px;
+        }
+        
+        .toolbar {
+            background-color: #1a1a1a;
+            padding: 8px 15px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            gap: 10px;
+        }
+
+        textarea {
+            flex: 1;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            padding: 20px;
+            border: none;
+            resize: none;
+            outline: none;
+        }
+
+        #markdown-preview { padding: 30px; line-height: 1.6; }
+
+        table { width: 100%; border-collapse: collapse; margin: 25px 0; background-color: #161616; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); }
+        th { background-color: #252526; color: var(--accent-color); text-align: left; padding: 14px 16px; border-bottom: 2px solid var(--border-color); }
+        td { padding: 12px 16px; border-bottom: 1px solid var(--border-color); }
+        tr:nth-child(even) td { background-color: #1a1a1a; }
+        a { color: var(--accent-color); text-decoration: none; }
+    </style>
+</head>
+<body>
+
+    <div class="app-layout">
+        <div id="sidebar" class="sidebar">
+            <div class="sidebar-header"><span>📚 Library</span></div>
+            <div class="sidebar-content">
+                <ul class="library-list" id="library-list">
+                </ul>
+            </div>
+        </div>
+
+        <div class="panel editor-panel">
+            <div class="header-bar">
+                <span style="font-size: 13px; font-weight: bold; color: #ccc; text-transform: uppercase; flex-shrink: 0;">Markdown Editor</span>
+                <div style="display: flex; align-items: center; gap: 10px; justify-content: center; flex-grow: 1;">
+                    <button id="btn-import-file" class="btn btn-secondary">📂 Import File</button>
+                    <div style="display: flex; align-items: center;">
+                        <button id="btn-download-file" class="btn btn-secondary" style="border-top-right-radius: 0; border-bottom-right-radius: 0; border-right-width: 0;">💾 Download</button>
+                        <select id="download-format-select" class="btn btn-secondary select-btn-style" style="border-top-left-radius: 0; border-bottom-left-radius: 0;"><option value=".md">.md</option><option value=".txt">.txt</option></select>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="article-title-input" class="input-std" placeholder="Article Title...">
+                    <button id="btn-submit-github" class="btn btn-primary">Submit to GitHub</button>
+                </div>
+            </div>
+
+            <div class="toolbar">
+                <button id="btn-toggle-sidebar" class="btn btn-secondary">📚 Library</button>
+                <button id="btn-insert-table" class="btn btn-secondary">📊 Insert Table</button>
+                <button id="btn-align-tables" class="btn btn-secondary">✨ Align Tables</button>
+            </div>
+            
+            <textarea id="markdown-input" spellcheck="false"></textarea>
+        </div>
+
+        <div class="panel preview-panel">
+            <div class="header-bar">
+                <span style="font-size: 13px; font-weight: bold; color: #ccc; text-transform: uppercase;">Live Preview</span>
+            </div>
+            <div id="markdown-preview"></div>
+        </div>
+    </div>
+
+    <input type="file" id="file-importer" accept=".md,.txt" style="display: none;" />
+
+    <script>
+        const GITHUB_USERNAME = "meeeeeooooow"; 
+        const GITHUB_REPO = "guide-contributions";
+        const GITHUB_FOLDER = "library";
+
+        const ARTICLE_LIBRARY = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const markdownInput = document.getElementById('markdown-input');
+            const previewContainer = document.getElementById('markdown-preview');
+            const titleInput = document.getElementById('article-title-input');
+            const downloadFormatSelect = document.getElementById('download-format-select');
+            const libraryList = document.getElementById('library-list');
+            const sidebar = document.getElementById('sidebar');
+            
+            const notify = (msg) => alert(msg);
+
+            const updatePreview = () => {
+                previewContainer.innerHTML = marked.parse(markdownInput.value);
+            };
+            markdownInput.addEventListener('input', updatePreview);
+
+            document.getElementById('btn-toggle-sidebar').addEventListener('click', () => {
+                sidebar.classList.toggle('collapsed');
+            });
+
+            function renderSidebar() {
+                libraryList.innerHTML = ''; 
+                
+                if (ARTICLE_LIBRARY.length === 0) {
+                    libraryList.innerHTML = '<li style="padding: 15px; color: #666;">No guides found.</li>';
+                    return;
+                }
+
+                ARTICLE_LIBRARY.forEach((article) => {
+                    const li = document.createElement('li');
+                    li.className = 'library-item';
+                    li.innerText = article.title;
+                    
+                    li.addEventListener('click', () => {
+                        document.querySelectorAll('.library-item').forEach(el => el.classList.remove('active'));
+                        li.classList.add('active');
+
+                        titleInput.value = article.title;
+                        markdownInput.value = article.content;
+                        updatePreview();
+                    });
+                    
+                    libraryList.appendChild(li);
+                });
+            }
+
+            async function fetchGuidesFromGitHub() {
+                libraryList.innerHTML = '<li style="padding: 15px; color: #888;">Loading from GitHub...</li>';
+                
+                const apiUrl = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/contents/${GITHUB_FOLDER}`;
+
+                try {
+                    const response = await fetch(apiUrl);
+                    if (!response.ok) throw new Error("Folder not found");
+                    
+                    const files = await response.json();
+
+                    for (const file of files) {
+                        if (file.name.endsWith('.md') || file.name.endsWith('.txt')) {
+                            const contentResponse = await fetch(file.download_url);
+                            const content = await contentResponse.text();
+
+                            ARTICLE_LIBRARY.push({
+                                title: file.name.replace(/\.(md|txt)$/i, ''),
+                                content: content
+                            });
+                        }
+                    }
+
+                    renderSidebar();
+                    
+                    if (ARTICLE_LIBRARY.length > 0) {
+                        libraryList.firstChild.click();
+                    } else {
+                        markdownInput.value = "## Empty Folder\n\nNo `.md` or `.txt` files were found in the `library` folder on GitHub.";
+                        updatePreview();
+                    }
+
+                } catch (error) {
+                    console.error("GitHub Fetch Error:", error);
+                    libraryList.innerHTML = '<li style="padding: 15px; color: #ff5555;">Could not load guides.</li>';
+                    markdownInput.value = "## Welcome to the Editor\n\nStart typing **Markdown** here to see it render live on the right!";
+                    updatePreview();
+                }
+            }
+
+            fetchGuidesFromGitHub();
+
+            const fileImporter = document.getElementById('file-importer');
+            document.getElementById('btn-import-file').addEventListener('click', () => {
+                fileImporter.click();
+            });
+
+            fileImporter.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    markdownInput.value = e.target.result;
+                    updatePreview();
+
+                    const fileName = file.name.replace(/\.(md|txt)$/i, '');
+                    titleInput.value = fileName;
+                    
+                    document.querySelectorAll('.library-item').forEach(el => el.classList.remove('active'));
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            });
+
+            document.getElementById('btn-download-file').addEventListener('click', () => {
+                const content = markdownInput.value;
+                const format = downloadFormatSelect.value;
+                const title = titleInput.value.trim() || 'Untitled';
+                const filename = `${title}${format}`;
+
+                const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+
+            document.getElementById('btn-insert-table').addEventListener('click', () => {
+                const template = `\n| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n| Data | Data | Data |\n| Data | Data | Data |\n`;
+                const startPos = markdownInput.selectionStart;
+                markdownInput.value = markdownInput.value.substring(0, startPos) + template + markdownInput.value.substring(markdownInput.selectionEnd);
+                markdownInput.focus();
+                updatePreview();
+            });
+
+            document.getElementById('btn-align-tables').addEventListener('click', () => {
+                markdownInput.value = formatMarkdownTables(markdownInput.value);
+                updatePreview();
+            });
+
+            document.getElementById('btn-submit-github').addEventListener('click', () => {
+                const articleTitle = titleInput.value.trim() || "Untitled Article";
+                const markdownContent = markdownInput.value.trim();
+                if (!markdownContent) return notify("Please write some content first!");
+
+                const repoBaseUrl = `https://github.com/${GITHUB_USERNAME}/${GITHUB_REPO}`; 
+                const issueTitle = encodeURIComponent(`Article: ${articleTitle}`);
+                const rawBody = `### Article Contribution: \n\n${markdownContent}`;
+                const encodedBody = encodeURIComponent(rawBody);
+                
+                if (encodedBody.length > 6000) {
+                    navigator.clipboard.writeText(rawBody).then(() => {
+                        window.open(`${repoBaseUrl}/issues/new?title=${issueTitle}`, '_blank');
+                        notify("Article is huge! Copied to clipboard. Paste into GitHub!");
+                    });
+                } else {
+                    window.open(`${repoBaseUrl}/issues/new?title=${issueTitle}&body=${encodedBody}`, '_blank');
+                }
+            });
+
+            function formatMarkdownTables(text) {
+                const lines = text.split(/\r?\n/); 
+                let inTable = false;
+                let tableLines = [];
+                let output = [];
+
+                const getVisLen = (s) => Array.from(s).length;
+                const padRight = (s, len) => s + ' '.repeat(Math.max(0, len - getVisLen(s)));
+
+                function processTable(tLines) {
+                    const rows = tLines.map(line => {
+                        let cells = line.split('|');
+                        if (cells.length > 0 && cells[0].trim() === '') cells.shift();
+                        if (cells.length > 0 && cells[cells.length - 1].trim() === '') cells.pop();
+                        return cells.map(c => c.trim());
+                    });
+                    
+                    if (rows.length < 2) return tLines.join('\n');
+
+                    const colWidths = [];
+                    const MAX_PAD = 40; 
+
+                    rows.forEach((row, rowIndex) => {
+                        if (rowIndex === 1) return;
+                        row.forEach((cell, i) => {
+                            const len = getVisLen(cell);
+                            if (!colWidths[i]) colWidths[i] = 3;
+                            if (len > colWidths[i]) colWidths[i] = Math.min(len, MAX_PAD);
+                        });
+                    });
+
+                    const aligned = rows.map((row, rowIndex) => {
+                        if (rowIndex === 1) return '| ' + colWidths.map(w => '-'.repeat(w)).join(' | ') + ' |';
+                        return '| ' + row.map((cell, i) => padRight(cell, colWidths[i])).join(' | ') + ' |';
+                    });
+                    return aligned.join('\n');
+                }
+
+                for (let i = 0; i < lines.length; i++) {
+                    const lineTrimmed = lines[i].trim();
+                    if (lineTrimmed.startsWith('|') || (inTable && lineTrimmed.includes('|'))) {
+                        inTable = true;
+                        tableLines.push(lineTrimmed);
+                    } else {
+                        if (inTable) {
+                            output.push(processTable(tableLines));
+                            tableLines = [];
+                            inTable = false;
+                        }
+                        output.push(lines[i]); 
+                    }
+                }
+                if (inTable) output.push(processTable(tableLines));
+                return output.join('\n');
+            }
+        });
+    </script>
+</body>
+</html>
