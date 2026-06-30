@@ -371,7 +371,7 @@
 
                 const repoBaseUrl = `https://github.com/${GITHUB_USERNAME}/${GITHUB_REPO}`; 
                 const issueTitle = encodeURIComponent(`Article: ${articleTitle}`);
-                const rawBody = `### Article Contribution: \n\n${markdownContent}`;
+                const rawBody = `### Notes: \n\n${markdownContent}`;
                 const encodedBody = encodeURIComponent(rawBody);
                 
                 if (encodedBody.length > 6000) {

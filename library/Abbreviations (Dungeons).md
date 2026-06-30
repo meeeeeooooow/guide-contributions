@@ -1,3 +1,5 @@
+# Abbreviations (Dungeons)
+
 | Abbreviation | Meaning | Usage |
 | --- | --- | --- |
 | aote | Aspect of the End | Mostly used for its Instant Transmission (Teleport) Ability |
